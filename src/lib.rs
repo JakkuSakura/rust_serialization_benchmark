@@ -1,3 +1,5 @@
+#![feature(generic_const_exprs)]
+#![feature(trivial_bounds)]
 // wiring causes this clippy lint everywhere
 #![cfg_attr(feature = "wiring", allow(clippy::manual_async_fn))]
 
@@ -57,10 +59,10 @@ pub mod bench_serde_json;
 pub mod bench_simd_json;
 #[cfg(feature = "speedy")]
 pub mod bench_speedy;
+pub mod bench_transmute;
 #[cfg(feature = "wiring")]
 pub mod bench_wiring;
 pub mod datasets;
-
 use core::{mem, ops};
 
 use rand::Rng;

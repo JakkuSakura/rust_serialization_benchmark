@@ -1,6 +1,7 @@
 #[allow(unused_imports)]
 use criterion::{black_box, criterion_main, Criterion};
 use rand_pcg::Lcg64Xsh32;
+use rkyv::Archived;
 #[cfg(feature = "bilrost")]
 use rust_serialization_benchmark::bench_bilrost;
 #[cfg(feature = "bincode")]
@@ -59,8 +60,9 @@ use rust_serialization_benchmark::bench_simd_json;
 use rust_serialization_benchmark::bench_speedy;
 #[cfg(feature = "wiring")]
 use rust_serialization_benchmark::bench_wiring;
-
-use rust_serialization_benchmark::generate_vec;
+use rust_serialization_benchmark::datasets::page::{Page, PageHeader};
+use rust_serialization_benchmark::{bench_transmute, generate_vec};
+use std::mem::transmute;
 
 fn bench_log(c: &mut Criterion) {
     use rust_serialization_benchmark::datasets::log::{Log, Logs};
@@ -735,6 +737,54 @@ fn bench_mk48(c: &mut Criterion) {
     bench_wiring::bench(BENCH, c, &data);
 }
 
+fn bench_page(c: &mut Criterion) {
+    const BENCH: &'static str = "page";
+    let mut data = Page {
+        header: PageHeader {
+            page_id: 1,
+            previous_id: 2,
+            next_id: 3,
+            page_type: 4,
+            space_id: 5,
+            padding: Default::default(),
+        },
+        data: [0; 4064],
+    };
+    for i in 0..data.data.len() {
+        data.data[i] = i as u8;
+    }
+    bench_bitcode::bench(BENCH, c, &data);
+    bench_rkyv::bench(
+        BENCH,
+        c,
+        &data,
+        |page| {
+            black_box(page.header.page_id);
+            black_box(page.header.previous_id);
+            black_box(page.header.next_id);
+            black_box(page.header.page_type);
+            black_box(page.header.space_id);
+            black_box(page.data);
+        },
+        |_update| unsafe {},
+    );
+    unsafe {
+        bench_transmute::bench(
+            BENCH,
+            c,
+            &data,
+            |page| {
+                black_box(page.header.page_id);
+                black_box(page.header.previous_id);
+                black_box(page.header.next_id);
+                black_box(page.header.page_type);
+                black_box(page.header.space_id);
+                black_box(page.data);
+            },
+            |_update| {},
+        );
+    }
+}
 #[cfg(feature = "pprof")]
 mod profiling {
     use criterion::profiler::Profiler;
@@ -780,10 +830,11 @@ mod profiling {
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    bench_log(c);
-    bench_mesh(c);
-    bench_minecraft_savedata(c);
-    bench_mk48(c);
+    // bench_log(c);
+    // bench_mesh(c);
+    // bench_minecraft_savedata(c);
+    // bench_mk48(c);
+    bench_page(c);
 }
 
 pub fn benches() {
